@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Altitude</string>
+    <string name="action_settings">Settings</string>
+    
+    <string name="barometer">Barometer</string>
+    <string name="gps">GPS</string>
+    
+    <string name="atmospheric_pressure">Atmospheric Pressure</string>
+    <string name="pressure_at_sea_level">Pressure At Sea Level</string>
+    <string name="custom_pressure_at_sea_level">Custom Pressure At Sea Level</string>
+    <string name="altitude">Altitude</string>
+    <string name="custom_altitude">Custom Altitude</string>
+    
+    <string name="default_value">--</string>
+
+</resources>
