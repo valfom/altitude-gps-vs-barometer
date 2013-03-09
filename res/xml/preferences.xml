@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <EditTextPreference
+        android:defaultValue="@string/settings_airport_id_default_value"
+        android:inputType="textCapCharacters"
+        android:key="etAirportId"
+        android:title="@string/settings_airport_id"
+        android:positiveButtonText="@string/settings_positive_btn"
+        android:negativeButtonText="@string/settings_negative_btn" />
+
+</PreferenceScreen>

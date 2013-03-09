@@ -14,11 +14,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/header" >
-        
+
         <TextView
             android:id="@+id/tvBarometerTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_margin="5dp"
             android:text="@string/barometer"
             android:textColor="@color/android:white" />
     </TableRow>
@@ -62,13 +63,13 @@
         android:layout_height="wrap_content" >
 
         <TextView
-            android:id="@+id/tvCustomPressureAtSeaLevelTitle"
+            android:id="@+id/tvLocalPressureAtSeaLevelTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/custom_pressure_at_sea_level" />
 
         <TextView
-            android:id="@+id/tvCustomPressureAtSeaLevel"
+            android:id="@+id/tvLocalPressureAtSeaLevel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/default_value" />
@@ -82,7 +83,7 @@
             android:id="@+id/tvAltitudeTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/altitude" />
+            android:text="@string/standard_altitude" />
 
         <TextView
             android:id="@+id/tvAltitude"
@@ -96,31 +97,32 @@
         android:layout_height="wrap_content" >
 
         <TextView
-            android:id="@+id/tvCustomAltitudeTitle"
+            android:id="@+id/tvLocalAltitudeTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/custom_altitude" />
+            android:text="@string/local_altitude" />
 
         <TextView
-            android:id="@+id/tvCustomAltitude"
+            android:id="@+id/tvLocalAltitude"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/default_value" />
     </TableRow>
-    
+
     <TableRow
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/header" >
-        
+
         <TextView
             android:id="@+id/tvGPSTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_margin="5dp"
             android:text="@string/gps"
             android:textColor="@color/android:white" />
     </TableRow>
-    
+
     <TableRow
         android:layout_width="match_parent"
         android:layout_height="wrap_content" >

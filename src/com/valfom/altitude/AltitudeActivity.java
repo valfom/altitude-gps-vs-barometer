@@ -14,6 +14,8 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -21,59 +23,64 @@ import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class AltitudeActivity extends Activity implements SensorEventListener, LocationListener {
-	
-	private static final float COEFFICIENT_MILLIMETER_OF_MERCURY = 0.7501f;
-	private static final int MIN_UPDATE_TIME = 1000;
-	private static final int MIN_UPDATE_DISTANCE = 0;
-	private static final String TAG_METAR = "metar";
+
 	private static final String TAG = "AltitudeActivity";
 	
+	private static final float TORR_IN_HPA = 0.7501f;
+	private static final int MIN_UPDATE_TIME = 500;
+	private static final int MIN_UPDATE_DISTANCE = 0;
+	private static final String TAG_METAR = "metar";
+
 	private SensorManager sensorManager;
 	private Sensor sensorPressure;
 	private LocationManager locationManager;
-	
-	private float customPressureAtSeaLevel;
-	private boolean customPressureObtained = false;
-	
+
+	private Float localPressureAtSeaLevel;
+	private boolean localPressureObtained = false;
+
 	private TextView tvAtmosphericPressure;
 	private TextView tvPressureAtSeaLevel;
-	private TextView tvCustomPressureAtSeaLevel;
+	private TextView tvLocalPressureAtSeaLevel;
 	private TextView tvAltitude;
-	private TextView tvCustomAltitude;
+	private TextView tvLocalAltitude;
 	private TextView tvAltitudeGPS;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
-		
+
 		super.onCreate(savedInstanceState);
-		
+
 		setContentView(R.layout.main);
-		
+
 		sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 		sensorPressure = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
-		locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-		
+			
 		tvAtmosphericPressure = (TextView) findViewById(R.id.tvAtmosphericPressure);
 		tvPressureAtSeaLevel = (TextView) findViewById(R.id.tvPressureAtSeaLevel);
-		tvCustomPressureAtSeaLevel = (TextView) findViewById(R.id.tvCustomPressureAtSeaLevel);
+		tvLocalPressureAtSeaLevel = (TextView) findViewById(R.id.tvLocalPressureAtSeaLevel);
 		tvAltitude = (TextView) findViewById(R.id.tvAltitude);
-		tvCustomAltitude = (TextView) findViewById(R.id.tvCustomAltitude);
+		tvLocalAltitude = (TextView) findViewById(R.id.tvLocalAltitude);
+		
 		tvAltitudeGPS = (TextView) findViewById(R.id.tvAltitudeGPS);
 		
-		updatePressure();
+		locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
 	}
 
 	@Override
 	protected void onPause() {
-	
+
 		super.onPause();
-		
+
 		sensorManager.unregisterListener(this);
 		unregisterAllListeners();
 	}
@@ -82,45 +89,59 @@ public class AltitudeActivity extends Activity implements SensorEventListener, L
 	protected void onResume() {
 
 		super.onResume();
-		
-		sensorManager.registerListener(this, sensorPressure, SensorManager.SENSOR_DELAY_NORMAL);
+
+		sensorManager.registerListener(this, sensorPressure,
+				SensorManager.SENSOR_DELAY_NORMAL);
 		registerListener();
+		
+		getLocalPressure();
 	}
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
-		
+
 		getMenuInflater().inflate(R.menu.altitude, menu);
-		
+
 		return true;
 	}
 
 	@Override
-	public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+	public boolean onMenuItemSelected(int featureId, MenuItem item) {
+
+		Intent settings = new Intent(this, AltitudePreferenceActivity.class);
+		startActivity(settings);
+		
+		return true;
+	}
+	
+	@Override
+	public void onAccuracyChanged(Sensor sensor, int accuracy) {
+	}
 
 	@Override
 	public void onSensorChanged(SensorEvent event) {
 
 		float atmosphericPressure, pressureAtSeaLevel;
-		float altitude, customAltitude;
-		
+		float altitude, localAltitude;
+
 		atmosphericPressure = event.values[0];
-		atmosphericPressure *= COEFFICIENT_MILLIMETER_OF_MERCURY; // Converts from hectopascal (hPa) to millimeters of mercury (torr)
-		
+		atmosphericPressure *= TORR_IN_HPA; // Converts from hectopascal (hPa) 
+											// to millimeters of mercury (torr)
+
 		pressureAtSeaLevel = SensorManager.PRESSURE_STANDARD_ATMOSPHERE;
-		pressureAtSeaLevel *= COEFFICIENT_MILLIMETER_OF_MERCURY;
-		
+		pressureAtSeaLevel *= TORR_IN_HPA;
+
 		altitude = SensorManager.getAltitude(pressureAtSeaLevel, atmosphericPressure);
-		
-		if (customPressureObtained) { 
-			
-			customAltitude = SensorManager.getAltitude(customPressureAtSeaLevel, atmosphericPressure);
-			tvCustomAltitude.setText(Float.toString(customAltitude));
+
+		if (localPressureObtained) {
+
+			localAltitude = SensorManager.getAltitude(localPressureAtSeaLevel, atmosphericPressure);
+			tvLocalAltitude.setText(Float.toString(localAltitude));
+			tvLocalPressureAtSeaLevel.setText(Float.toString(localPressureAtSeaLevel));
 		}
-		
+
 		tvAtmosphericPressure.setText(Float.toString(atmosphericPressure));
 		tvPressureAtSeaLevel.setText(Float.toString(pressureAtSeaLevel));
-		tvCustomPressureAtSeaLevel.setText(Float.toString(customPressureAtSeaLevel));
 		tvAltitude.setText(Float.toString(altitude));
 	}
 
@@ -131,26 +152,27 @@ public class AltitudeActivity extends Activity implements SensorEventListener, L
 	}
 
 	@Override
-	public void onProviderDisabled(String provider) {}
+	public void onProviderDisabled(String provider) {
+		
+		tvAltitudeGPS.setText(R.string.default_value);
+	}
 
 	@Override
 	public void onProviderEnabled(String provider) {
-		
+
 		registerListener();
 	}
 
 	@Override
 	public void onStatusChanged(String provider, int status, Bundle extras) {}
-	
+
 	private void updateGPSAltitude(Location location) {
-		
-		float altitude;
-		
-		altitude = (float) location.getAltitude();
-		
+
+		float altitude = (float) location.getAltitude();
+
 		tvAltitudeGPS.setText(Float.toString(altitude));
 	}
-	
+
 	private void unregisterAllListeners() {
 
 		locationManager.removeUpdates(this);
@@ -163,93 +185,110 @@ public class AltitudeActivity extends Activity implements SensorEventListener, L
 		locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
 				MIN_UPDATE_TIME, MIN_UPDATE_DISTANCE, this);
 	}
-	
-	private void updatePressure() {
-		
-		Thread task = new Thread(new Runnable() {
-	    	
-			public void run() {
-				
-				String metar = getMetarWeatherReport();
-				
-				if (metar != null) {
-					
-					customPressureAtSeaLevel = getPressureValueFromMetar(metar);
-					customPressureAtSeaLevel *= COEFFICIENT_MILLIMETER_OF_MERCURY;
-					
-					customPressureObtained = true;
-				}
-			}
-		});
-	    
-		task.start();
-	}
-	
-	public String getMetarWeatherReport() {
-		
-	    InputStream is = null;
-	    String result = null;
-	    
-	    try {
-	    	
-	    	String url = "http://avdata.geekpilot.net/weather/DME.xml";
-	    	URL text = new URL(url);
 
-	    	URLConnection connection = text.openConnection();
-	    	connection.setReadTimeout(30000);
-	    	connection.setConnectTimeout(30000);
+	private class getLocalPressureTask extends AsyncTask<Void, Void, Void> {
 
-	    	is = connection.getInputStream();
-  
-	    	DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-	    	DocumentBuilder domParser = dbf.newDocumentBuilder();
-	    	Document xmldoc = domParser.parse(is);
-	    	Element root = xmldoc.getDocumentElement();
-	    	
-	    	result = getMetarTagValue(TAG_METAR, root);
-	    	
-	    } catch (Exception e) {
-	    	
-	    	Log.e(TAG, "Error in network call", e);
-	      
-	    } finally {
-	      
-	    	try {
-	        
-	    		if(is != null) is.close();
-	    		
-	    	} catch (IOException e) {
-	        
-	    		e.printStackTrace();
-	    	}
-	    }
-	    
-	    return result;
-	}
-	
-	public String getMetarTagValue(String tag, Element element) {
-		
-	    NodeList list = element.getElementsByTagName(tag).item(0).getChildNodes();
-	    Node value = (Node) list.item(0);
-	    
-	    return value.getNodeValue();
-	}
-	
-	public float getPressureValueFromMetar(String metar) {
-		
-		float pressure = 0.0f;
-		String[] codes = metar.split(" ");
-		
-		for (String code : codes) {
+		@Override
+		protected Void doInBackground(Void... params) {
 			
-			if (code.charAt(0) == 'Q') {
+			String metar = getWeatherReport();
+
+			if (metar != null) localPressureAtSeaLevel = getPressureValue(metar);
+			else localPressureAtSeaLevel = null;
+			
+			return null;
+		}
+
+		@Override
+		protected void onPostExecute(Void result) {
+			
+			if (localPressureAtSeaLevel != null) {
 				
-				pressure = Float.parseFloat(code.substring(1));
+				localPressureAtSeaLevel *= TORR_IN_HPA;
+				localPressureObtained = true;
 				
-				return pressure;
+			} else {
+				
+				Toast.makeText(getApplicationContext(), getString(R.string.err_msg), Toast.LENGTH_LONG).show();
+				
+				localPressureObtained = false;
+				tvLocalPressureAtSeaLevel.setText(getString(R.string.default_value));
+				tvLocalAltitude.setText(getString(R.string.default_value));
 			}
 		}
+	}
+	
+	private void getLocalPressure() {
 		
+		new getLocalPressureTask().execute();
+	}
+
+	public String getWeatherReport() {
+
+		InputStream is = null;
+		String result = null;
+
+		try {
+			
+			SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+			
+			String airportId = sharedPreferences.getString(AltitudePreferenceActivity.KEY_AIRPORT_ID, 
+					getString(R.string.settings_airport_id_default_value));
+
+			String url = "http://avdata.geekpilot.net/weather/" + airportId + ".xml";
+
+			URL text = new URL(url);
+
+			URLConnection connection = text.openConnection();
+			connection.setReadTimeout(30000);
+			connection.setConnectTimeout(30000);
+
+			is = connection.getInputStream();
+			
+			DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+			DocumentBuilder domParser = dbf.newDocumentBuilder();
+			Document xmldoc = domParser.parse(is);
+			Element root = xmldoc.getDocumentElement();
+
+			result = getMetarTagValue(TAG_METAR, root);
+
+		} catch (Exception e) {
+
+			Log.e(TAG, "Error in network call", e);
+
+		} finally {
+
+			try {
+
+				if (is != null) is.close();
+
+			} catch (IOException e) {
+
+				e.printStackTrace();
+			}
+		}
+
+		return result;
+	}
+
+	public String getMetarTagValue(String tag, Element element) {
+
+		NodeList list = element.getElementsByTagName(tag).item(0).getChildNodes();
+		Node value = (Node) list.item(0);
+
+		return value.getNodeValue();
+	}
+
+	public Float getPressureValue(String metar) {
+
+		Float pressure = null;
+		String[] codes = metar.split(" ");
+
+		for (String code : codes) {
+
+			if (code.charAt(0) == 'Q') pressure = Float.parseFloat(code.substring(1));
+		}
+
 		return pressure;
 	}
 }
